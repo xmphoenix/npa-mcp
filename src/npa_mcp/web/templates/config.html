@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>npa-mcp 配置</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #ffffff;
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --accent: #2563eb;
+    --accent-ink: #ffffff;
+    --ok: #059669;
+    --warn: #d97706;
+    --bad: #dc2626;
+    --soft: #f6f7f9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--soft); color: var(--ink);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    font-size: 14px;
+  }
+  header {
+    position: sticky; top: 0; z-index: 20;
+    background: var(--bg); color: #e5e7eb;
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 22px; box-shadow: 0 2px 6px rgba(0,0,0,.25);
+  }
+  header h1 { font-size: 17px; margin: 0; font-weight: 600; letter-spacing: .5px; }
+  header .spacer { flex: 1; }
+  header .badge { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: #1e293b; color: #94a3b8; }
+  header .badge.good { background: #064e3b; color: #6ee7b7; }
+  header .badge.bad { background: #7f1d1d; color: #fca5a5; }
+  header a.btn, header button.btn {
+    color: #e5e7eb; border: 1px solid #334155; background: #1e293b;
+    border-radius: 6px; padding: 6px 12px; cursor: pointer; text-decoration: none; font-size: 13px;
+  }
+  header a.btn:hover, header button.btn:hover { background: #334155; }
+  header button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  header button.primary:hover { background: #1d4ed8; }
+  header button:disabled { opacity: .5; cursor: wait; }
+  main { max-width: 1180px; margin: 20px auto 60px; padding: 0 16px; }
+  .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .card h3 { margin: 0 0 6px; font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: .5px; }
+  .card .v { font-size: 14px; word-break: break-all; line-height: 1.5; }
+  .card .sub { color: var(--muted); font-size: 12px; margin-top: 3px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
+  form { display: flex; flex-direction: column; gap: 16px; }
+  fieldset { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px 18px; margin: 0; }
+  legend { font-weight: 700; font-size: 15px; padding: 0 6px; color: #111827; }
+  legend small { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 18px; }
+  .grid.two { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+  label.field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); }
+  label.field > span { font-weight: 600; }
+  label.check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); user-select: none; }
+  input[type=text], input[type=password], input[type=number], select, textarea {
+    width: 100%; border: 1px solid #d1d5db; border-radius: 6px; padding: 7px 9px;
+    font: inherit; color: var(--ink); background: #fff;
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid #bfdbfe; border-color: var(--accent); }
+  textarea { font-family: Consolas, "Courier New", monospace; font-size: 12px; line-height: 1.55; resize: vertical; }
+  .hint { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 6px 0 0; }
+  .hint code { background: #eef2ff; color: #3730a3; padding: 1px 5px; border-radius: 4px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .subhead { margin: 18px 0 8px; font-size: 13px; font-weight: 700; color: #374151; border-left: 3px solid var(--accent); padding-left: 8px; }
+  .toast {
+    display: none; position: fixed; right: 22px; bottom: 22px; max-width: 460px;
+    background: #111827; color: #f9fafb; padding: 12px 16px; border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.25); z-index: 40; font-size: 13px; line-height: 1.6;
+    white-space: pre-wrap;
+  }
+  .toast.err { background: #7f1d1d; }
+  .toast.ok { background: #064e3b; }
+  .toast.show { display: block; }
+  footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 28px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>npa-mcp</h1>
+  <span class="badge" id="badge-port">端口 -</span>
+  <span class="badge" id="badge-version">v-</span>
+  <span class="spacer"></span>
+  <a class="btn" href="/terminals" target="_blank">终端页</a>
+  <a class="btn" href="/reports" target="_blank">报告</a>
+  <button class="btn" id="btn-reload" type="button">重新加载</button>
+  <button class="btn primary" id="btn-save" type="button">保存配置</button>
+</header>
+
+<main>
+  <div class="status-grid" id="status-grid">
+    <div class="card"><h3>运行状态</h3><div class="v">读取中…</div></div>
+  </div>
+
+  <form id="cfg-form" autocomplete="off" onsubmit="return false">
+    <fieldset>
+      <legend>网页与数据目录 <small>网页仅监听本机;数据目录用于镜像、报告与日志</small></legend>
+      <div class="grid">
+        <label class="field"><span>监听地址</span>
+          <input type="text" data-path="web.host" placeholder="127.0.0.1">
+        </label>
+        <label class="field"><span>网页端口 <small>(重启后生效)</small></span>
+          <input type="number" min="1" max="65535" data-path="web.port" data-type="int">
+        </label>
+        <label class="field"><span>无 MCP 客户端时保活秒数</span>
+          <input type="number" min="0" data-path="web.keep_alive_sec" data-type="int">
+        </label>
+        <label class="check"><input type="checkbox" data-path="web.auto_open" data-type="bool">启动时自动打开配置页</label>
+        <label class="field"><span>自动打开最短间隔秒数 <small>(多实例去重)</small></span>
+          <input type="number" min="0" data-path="web.auto_open_interval_sec" data-type="int">
+        </label>
+        <label class="check"><input type="checkbox" data-path="web.native_terminal" data-type="bool">会话自动开独立终端窗口</label>
+        <label class="field"><span>固件镜像目录</span>
+          <input type="text" data-path="paths.image_dir">
+        </label>
+        <label class="field"><span>报告输出目录</span>
+          <input type="text" data-path="paths.report_dir">
+        </label>
+        <label class="field"><span>日志目录</span>
+          <input type="text" data-path="paths.log_dir">
+        </label>
+      </div>
+      <p class="hint">修改数据目录后新目录会自动创建;TFTP/FTP/HTTP 均服务“固件镜像目录”。</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>代码服务器 <small>SSH 到远程编译机,执行命令、读写文件、拉取固件</small></legend>
+      <div class="grid">
+        <label class="field"><span>主机 / IP</span><input type="text" data-path="code_server.host" placeholder="192.168.1.50"></label>
+        <label class="field"><span>端口</span><input type="number" data-path="code_server.port" data-type="int"></label>
+        <label class="field"><span>用户名</span><input type="text" data-path="code_server.username"></label>
+        <label class="field"><span>认证方式</span>
+          <select data-path="code_server.auth.type">
+            <option value="password">密码</option>
+            <option value="key">私钥文件</option>
+          </select>
+        </label>
+        <label class="field"><span>密码 <small>(显示 *** 表示已保存)</small></span>
+          <input type="password" data-path="code_server.auth.password" placeholder="***">
+        </label>
+        <label class="field"><span>私钥文件路径</span><input type="text" data-path="code_server.auth.key_file" placeholder="C:/Users/me/.ssh/id_ed25519"></label>
+        <label class="field"><span>私钥口令</span><input type="password" data-path="code_server.auth.passphrase" placeholder="***"></label>
+        <label class="field"><span>默认工作目录</span><input type="text" data-path="code_server.workdir" placeholder="/home/dev/project"></label>
+        <label class="field"><span>Shell 提示符 <small>(可选)</small></span><input type="text" data-path="code_server.shell_prompt"></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>开发板 <small>device_exec 默认按“优先方式”连接</small></legend>
+      <div class="grid">
+        <label class="field"><span>优先连接方式</span>
+          <select data-path="device.prefer">
+            <option value="serial">串口</option>
+            <option value="telnet">Telnet</option>
+            <option value="ssh">SSH</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="subhead">串口控制台</div>
+      <div class="grid">
+        <label class="check"><input type="checkbox" data-path="device.serial.enabled" data-type="bool">启用串口</label>
+        <label class="field"><span>串口号</span><input type="text" data-path="device.serial.port" placeholder="COM3(COM10+ 自动加 \\.\)"></label>
+        <label class="field"><span>波特率</span><input type="number" data-path="device.serial.baudrate" data-type="int"></label>
+        <label class="field"><span>数据位</span><input type="number" data-path="device.serial.bytesize" data-type="int"></label>
+        <label class="field"><span>校验位</span>
+          <select data-path="device.serial.parity"><option>N</option><option>E</option><option>O</option><option>M</option><option>S</option></select>
+        </label>
+        <label class="field"><span>停止位</span>
+          <select data-path="device.serial.stopbits" data-type="float"><option value="1">1</option><option value="1.5">1.5</option><option value="2">2</option></select>
+        </label>
+        <label class="field"><span>编码</span><input type="text" data-path="device.serial.encoding" placeholder="utf-8"></label>
+        <label class="field"><span>行结束符</span>
+          <select data-path="device.serial.line_ending"><option value="crlf">CRLF</option><option value="lf">LF</option><option value="cr">CR</option></select>
+        </label>
+        <label class="field"><span>用户名</span><input type="text" data-path="device.serial.username"></label>
+        <label class="field"><span>密码</span><input type="password" data-path="device.serial.password" placeholder="***"></label>
+        <label class="check"><input type="checkbox" data-path="device.serial.login_required" data-type="bool">需要登录</label>
+        <label class="field"><span>登录提示</span><input type="text" data-path="device.serial.login_prompt"></label>
+        <label class="field"><span>密码提示</span><input type="text" data-path="device.serial.password_prompt"></label>
+        <label class="field"><span>Shell 提示符</span><input type="text" data-path="device.serial.shell_prompt"></label>
+        <label class="check"><input type="checkbox" data-path="device.serial.echo_strip" data-type="bool">剥离回显</label>
+      </div>
+
+      <div class="subhead">Telnet 控制台</div>
+      <div class="grid">
+        <label class="check"><input type="checkbox" data-path="device.telnet.enabled" data-type="bool">启用 Telnet</label>
+        <label class="field"><span>主机 / IP</span><input type="text" data-path="device.telnet.host"></label>
+        <label class="field"><span>端口</span><input type="number" data-path="device.telnet.port" data-type="int"></label>
+        <label class="field"><span>用户名</span><input type="text" data-path="device.telnet.username"></label>
+        <label class="field"><span>密码</span><input type="password" data-path="device.telnet.password" placeholder="***"></label>
+        <label class="check"><input type="checkbox" data-path="device.telnet.login_required" data-type="bool">需要登录</label>
+        <label class="field"><span>登录提示</span><input type="text" data-path="device.telnet.login_prompt"></label>
+        <label class="field"><span>密码提示</span><input type="text" data-path="device.telnet.password_prompt"></label>
+        <label class="field"><span>Shell 提示符</span><input type="text" data-path="device.telnet.shell_prompt"></label>
+        <label class="field"><span>退出命令</span><input type="text" data-path="device.telnet.close_cmd"></label>
+        <label class="field"><span>编码</span><input type="text" data-path="device.telnet.encoding"></label>
+        <label class="field"><span>行结束符</span>
+          <select data-path="device.telnet.line_ending"><option value="crlf">CRLF</option><option value="lf">LF</option><option value="cr">CR</option></select>
+        </label>
+        <label class="check"><input type="checkbox" data-path="device.telnet.echo_strip" data-type="bool">剥离回显</label>
+      </div>
+
+      <div class="subhead">SSH 控制台</div>
+      <div class="grid">
+        <label class="check"><input type="checkbox" data-path="device.ssh.enabled" data-type="bool">启用 SSH</label>
+        <label class="field"><span>主机 / IP</span><input type="text" data-path="device.ssh.host"></label>
+        <label class="field"><span>端口</span><input type="number" data-path="device.ssh.port" data-type="int"></label>
+        <label class="field"><span>用户名</span><input type="text" data-path="device.ssh.username"></label>
+        <label class="field"><span>认证方式</span>
+          <select data-path="device.ssh.auth.type"><option value="password">密码</option><option value="key">私钥文件</option></select>
+        </label>
+        <label class="field"><span>密码</span><input type="password" data-path="device.ssh.auth.password" placeholder="***"></label>
+        <label class="field"><span>私钥文件路径</span><input type="text" data-path="device.ssh.auth.key_file"></label>
+        <label class="field"><span>私钥口令</span><input type="password" data-path="device.ssh.auth.passphrase" placeholder="***"></label>
+        <label class="field"><span>Shell 提示符</span><input type="text" data-path="device.ssh.shell_prompt"></label>
+        <label class="field"><span>退出命令</span><input type="text" data-path="device.ssh.close_cmd"></label>
+      </div>
+      <p class="hint">串口/Telnet 登录凭据用于 <code>device_exec</code> 与终端页;提示符用于判断命令是否执行完成。</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>电源管理设备 <small>telnet/ssh 登录后按命令模板开关插座</small></legend>
+      <div class="grid">
+        <label class="field"><span>传输方式</span>
+          <select data-path="power.transport"><option value="telnet">Telnet</option><option value="ssh">SSH</option></select>
+        </label>
+        <label class="field"><span>主机 / IP</span><input type="text" data-path="power.host"></label>
+        <label class="field"><span>端口</span><input type="number" data-path="power.port" data-type="int"></label>
+        <label class="field"><span>用户名</span><input type="text" data-path="power.username"></label>
+        <label class="field"><span>密码</span><input type="password" data-path="power.password" placeholder="***"></label>
+        <label class="check"><input type="checkbox" data-path="power.login_required" data-type="bool">需要登录</label>
+        <label class="field"><span>登录提示</span><input type="text" data-path="power.login_prompt"></label>
+        <label class="field"><span>密码提示</span><input type="text" data-path="power.password_prompt"></label>
+        <label class="field"><span>命令提示符</span><input type="text" data-path="power.prompt"></label>
+        <label class="field"><span>插座编号</span><input type="number" min="1" data-path="power.outlet" data-type="int"></label>
+        <label class="field"><span>超时(秒)</span><input type="number" min="1" data-path="power.timeout_sec" data-type="int"></label>
+        <label class="check"><input type="checkbox" data-path="power.session_reuse" data-type="bool">复用连接</label>
+        <label class="field"><span>开机命令</span><input type="text" data-path="power.commands.on"></label>
+        <label class="field"><span>关机命令</span><input type="text" data-path="power.commands.off"></label>
+        <label class="field"><span>状态命令</span><input type="text" data-path="power.commands.status"></label>
+        <label class="field"><span>成功关键字 <small>(逗号分隔)</small></span><input type="text" data-list-path="power.expect.ok"></label>
+        <label class="field"><span>失败关键字 <small>(逗号分隔)</small></span><input type="text" data-list-path="power.expect.fail"></label>
+      </div>
+      <p class="hint">命令模板中的 <code>{outlet}</code> 会替换为插座编号;判定时取输出中最早出现的关键字,判定不了会返回原始输出而不是假装成功。</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>固件分发服务 <small>TFTP / FTP / HTTP,设备可主动来拉镜像</small></legend>
+      <div class="grid">
+        <label class="field"><span>对外主机 IP <small>(留空自动探测)</small></span><input type="text" data-path="firmware_server.host" placeholder="自动"></label>
+      </div>
+      <div class="subhead">TFTP</div>
+      <div class="grid">
+        <label class="check"><input type="checkbox" data-path="firmware_server.tftp.enabled" data-type="bool">启用 TFTP</label>
+        <label class="field"><span>端口</span><input type="number" data-path="firmware_server.tftp.port" data-type="int"></label>
+        <label class="field"><span>绑定地址</span><input type="text" data-path="firmware_server.tftp.bind"></label>
+      </div>
+      <div class="subhead">FTP</div>
+      <div class="grid">
+        <label class="check"><input type="checkbox" data-path="firmware_server.ftp.enabled" data-type="bool">启用 FTP</label>
+        <label class="field"><span>端口</span><input type="number" data-path="firmware_server.ftp.port" data-type="int"></label>
+        <label class="field"><span>绑定地址</span><input type="text" data-path="firmware_server.ftp.bind"></label>
+        <label class="field"><span>用户名</span><input type="text" data-path="firmware_server.ftp.username"></label>
+        <label class="field"><span>密码</span><input type="password" data-path="firmware_server.ftp.password" placeholder="***"></label>
+        <label class="field"><span>被动端口范围</span><input type="text" data-path="firmware_server.ftp.passive_ports" placeholder="30000-30100"></label>
+      </div>
+      <div class="subhead">HTTP</div>
+      <div class="grid">
+        <label class="check"><input type="checkbox" data-path="firmware_server.http.enabled" data-type="bool">启用 HTTP 下载</label>
+        <label class="field"><span>下载 token <small>(留空不校验)</small></span><input type="password" data-path="firmware_server.http.token" placeholder="***"></label>
+      </div>
+      <p class="hint">HTTP 路径为 <code>http://&lt;本机IP&gt;:&lt;网页端口&gt;/images/&lt;文件名&gt;</code>。局域网开放下载时建议设置 token。</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>设备拉取固件 <small>device_pull_firmware 使用这些模板</small></legend>
+      <div class="grid">
+        <label class="field"><span>设备默认下载目录</span><input type="text" data-path="firmware.device_pull_dir" placeholder="/tmp"></label>
+      </div>
+      <div class="grid two" style="margin-top:10px">
+        <label class="field"><span>TFTP 模板</span><textarea rows="2" data-path="firmware.pull_templates.tftp"></textarea></label>
+        <label class="field"><span>wget 模板</span><textarea rows="2" data-path="firmware.pull_templates.wget"></textarea></label>
+        <label class="field"><span>ftpget 模板</span><textarea rows="2" data-path="firmware.pull_templates.ftpget"></textarea></label>
+        <label class="field"><span>scp 模板</span><textarea rows="2" data-path="firmware.pull_templates.scp"></textarea></label>
+        <label class="field"><span>校验命令</span><textarea rows="2" data-path="firmware.verify.cmd"></textarea></label>
+      </div>
+      <p class="hint">占位符:<code>{file}</code> <code>{host}</code> <code>{http_port}</code> <code>{port}</code> <code>{user}</code> <code>{pass}</code> <code>{remote_path}</code> <code>{token}</code>。<code>{remote_path}</code> 为设备上的完整目标路径。</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>定时自主工作 <small>Windows 任务计划在指定时段启动无头 Claude</small></legend>
+      <div class="grid">
+        <label class="field" style="grid-column: 1 / -1"><span>工作时间段(JSON 数组)</span>
+          <textarea id="windows-json" rows="12" spellcheck="false"></textarea>
+        </label>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" type="button" id="btn-window-sample" style="border:1px solid #d1d5db;background:#fff;border-radius:6px;padding:6px 12px;cursor:pointer">填入夜间示例</button>
+      </div>
+      <p class="hint">days 使用 Python 星期编号:0=周一 … 6=周日。支持跨午夜(如 23:00–06:00)。job.task_file 是给 AI 的任务说明;allowed_tools 必须显式列出无头模式允许使用的工具。</p>
+    </fieldset>
+  </form>
+
+  <footer>npa-mcp · 配置文件修改后立即生效(端口修改除外) · <span id="footer-path"></span></footer>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+  const state = { config: null, saving: false, dirty: false };
+  const $ = (sel) => document.querySelector(sel);
+
+  function getPath(obj, path) {
+    return path.split(".").reduce((acc, key) => (acc == null ? undefined : acc[key]), obj);
+  }
+  function setPath(obj, path, value) {
+    const keys = path.split(".");
+    let cur = obj;
+    for (let i = 0; i < keys.length - 1; i++) {
+      const k = keys[i];
+      if (typeof cur[k] !== "object" || cur[k] === null) cur[k] = {};
+      cur = cur[k];
+    }
+    cur[keys[keys.length - 1]] = value;
+  }
+  function toast(text, kind) {
+    const el = $("#toast");
+    el.textContent = text;
+    el.className = "toast show " + (kind || "");
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => { el.className = "toast"; }, kind === "err" ? 9000 : 4200);
+  }
+  async function api(url, options) {
+    const resp = await fetch(url, options);
+    let data = null;
+    try { data = await resp.json(); } catch (e) { data = { ok: false, error: "响应不是 JSON" }; }
+    return { status: resp.status, data };
+  }
+
+  function fillForm() {
+    const cfg = state.config || {};
+    document.querySelectorAll("[data-path]").forEach((el) => {
+      const value = getPath(cfg, el.dataset.path);
+      if (el.type === "checkbox") {
+        el.checked = !!value;
+      } else if (value !== undefined && value !== null) {
+        el.value = String(value);
+      } else {
+        el.value = "";
+      }
+    });
+    document.querySelectorAll("[data-list-path]").forEach((el) => {
+      const value = getPath(cfg, el.dataset.listPath);
+      el.value = Array.isArray(value) ? value.join(", ") : "";
+    });
+    const windows = cfg.work_windows || [];
+    $("#windows-json").value = JSON.stringify(windows.length ? windows : [], null, 2);
+  }
+
+  function collect() {
+    const patch = {};
+    document.querySelectorAll("[data-path]").forEach((el) => {
+      const type = el.dataset.type || "str";
+      let value;
+      if (type === "bool") value = !!el.checked;
+      else if (type === "int") value = el.value === "" ? 0 : parseInt(el.value, 10);
+      else if (type === "float") value = el.value === "" ? 0 : parseFloat(el.value);
+      else value = el.value;
+      if (type === "int" && Number.isNaN(value)) value = 0;
+      if (type === "float" && Number.isNaN(value)) value = 0;
+      setPath(patch, el.dataset.path, value);
+    });
+    document.querySelectorAll("[data-list-path]").forEach((el) => {
+      const items = el.value.split(/[,，\n]/).map((s) => s.trim()).filter(Boolean);
+      setPath(patch, el.dataset.listPath, items);
+    });
+    let windows;
+    try {
+      windows = JSON.parse($("#windows-json").value || "[]");
+    } catch (e) {
+      throw new Error("工作时间段 JSON 格式错误: " + e.message);
+    }
+    if (!Array.isArray(windows)) throw new Error("工作时间段必须是 JSON 数组");
+    patch.work_windows = windows;
+    return patch;
+  }
+
+  async function loadConfig() {
+    const { data } = await api("/api/config");
+    if (!data || !data.ok) {
+      toast("读取配置失败: " + ((data && data.error) || "未知错误"), "err");
+      return;
+    }
+    state.config = data.config;
+    $("#footer-path").textContent = data.path || "";
+    fillForm();
+  }
+
+  async function saveConfig() {
+    if (state.saving) return;
+    let patch;
+    try { patch = collect(); } catch (e) { toast(e.message, "err"); return; }
+    state.saving = true;
+    $("#btn-save").disabled = true;
+    try {
+      const { data } = await api("/api/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!data || !data.ok) {
+        const detail = data && data.detail ? "\n" + data.detail.join("\n") : "";
+        toast("保存失败: " + ((data && data.error) || "未知错误") + detail, "err");
+        return;
+      }
+      state.config = data.config;
+      state.dirty = false;
+      fillForm();
+      toast(data.message + (data.hint ? "\n" + data.hint : ""), "ok");
+    } catch (e) {
+      toast("保存失败: " + e.message, "err");
+    } finally {
+      state.saving = false;
+      $("#btn-save").disabled = false;
+    }
+  }
+
+  function dotFor(running, enabled) {
+    if (!enabled) return '<span class="dot warn"></span>';
+    return running ? '<span class="dot ok"></span>' : '<span class="dot bad"></span>';
+  }
+
+  async function loadStatus() {
+    const { data } = await api("/api/status");
+    if (!data || !data.ok) return;
+    const s = data.status;
+    const fs = s.fileservers;
+    const servers = fs.servers.map((srv) =>
+      `<div>${dotFor(srv.running, srv.enabled)}${srv.name.toUpperCase()} :${srv.port}` +
+      (srv.error ? ` <span class="sub">${srv.error}</span>` : "") + "</div>"
+    ).join("");
+    const sess = s.sessions || [];
+    const wins = (s.work_windows || []).map((w) => `${w.name} ${w.start}–${w.end}`).join("<br>") || "未配置";
+    $("#status-grid").innerHTML = `
+      <div class="card"><h3>配置文件</h3><div class="v">${escapeHtml(s.config_path)}</div>
+        <div class="sub">局域网 IP ${escapeHtml(s.lan_ip)} · 网页端口 ${s.web.port}</div></div>
+      <div class="card"><h3>代码服务器</h3><div class="v">${s.code_server.configured ? '<span class="dot ok"></span>已配置' : '<span class="dot bad"></span>未配置'}</div>
+        <div class="sub">${escapeHtml(s.code_server.username || "-")}@${escapeHtml(s.code_server.host || "-")}:${s.code_server.port}</div></div>
+      <div class="card"><h3>开发板</h3><div class="v">优先: ${escapeHtml(s.device.prefer)}</div>
+        <div class="sub">串口 ${s.device.serial.enabled ? escapeHtml(s.device.serial.port || "未填") : "关闭"} ·
+        Telnet ${s.device.telnet.enabled ? "开" : "关"} · SSH ${s.device.ssh.enabled ? "开" : "关"}</div></div>
+      <div class="card"><h3>电源设备</h3><div class="v">${s.power.configured ? '<span class="dot ok"></span>已配置' : '<span class="dot bad"></span>未配置'}</div>
+        <div class="sub">${escapeHtml(s.power.transport)} · ${escapeHtml(s.power.host || "-")} · 插座 ${s.power.outlet}</div></div>
+      <div class="card"><h3>文件服务</h3><div class="v">${servers}</div>
+        <div class="sub">对外 ${escapeHtml(fs.host)} · HTTP 端口 ${fs.http_port}</div></div>
+      <div class="card"><h3>会话</h3><div class="v">${sess.length} 个活动会话</div>
+        <div class="sub">${sess.slice(0, 4).map((x) => escapeHtml(x.label + " (" + x.kind + ")")).join("<br>") || "无"}</div></div>
+      <div class="card"><h3>工作时间段</h3><div class="v">${wins}</div>
+        <div class="sub"><a href="/terminals" target="_blank">打开终端页</a></div></div>
+    `;
+    $("#badge-port").textContent = "端口 " + s.web.port;
+    $("#badge-version").textContent = "v" + (s.version || "-");
+    $("#badge-port").className = "badge good";
+  }
+  function escapeHtml(text) {
+    return String(text == null ? "" : text).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+  }
+
+  $("#btn-save").addEventListener("click", saveConfig);
+  $("#btn-reload").addEventListener("click", () => { loadConfig(); loadStatus(); });
+  $("#btn-window-sample").addEventListener("click", () => {
+    const sample = [{
+      name: "nightly",
+      days: [0, 1, 2, 3, 4, 5, 6],
+      start: "23:00",
+      end: "06:00",
+      job: {
+        max_turns: 100,
+        allowed_tools: "mcp__npa_mcp__*,Bash,Read,Edit,Write,Glob,Grep",
+      },
+    }];
+    $("#windows-json").value = JSON.stringify(sample, null, 2);
+  });
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      saveConfig();
+    }
+  });
+  window.addEventListener("beforeunload", (e) => {
+    if (state.dirty) { e.preventDefault(); e.returnValue = ""; }
+  });
+  document.addEventListener("input", () => { state.dirty = true; });
+
+  loadConfig();
+  loadStatus();
+  setInterval(loadStatus, 5000);
+})();
+</script>
+</body>
+</html>

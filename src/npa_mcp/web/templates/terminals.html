@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>npa-mcp 终端</title>
+<link rel="stylesheet" href="/static/xterm.css">
+<style>
+  :root {
+    --bg: #0b1220; --panel: #111a2b; --line: #1f2b3d; --ink: #dbe4f0; --muted: #8093ad;
+    --accent: #3b82f6; --ok: #10b981; --bad: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  header {
+    display: flex; align-items: center; gap: 10px; padding: 9px 16px;
+    background: #0d1524; border-bottom: 1px solid var(--line); flex: 0 0 auto;
+  }
+  header h1 { font-size: 15px; margin: 0; letter-spacing: .5px; }
+  header .spacer { flex: 1; }
+  header a, header button {
+    color: var(--ink); background: #17233a; border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 11px; font-size: 12px; cursor: pointer; text-decoration: none;
+  }
+  header button:hover, header a:hover { background: #213354; }
+  header button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .wrap { flex: 1; display: flex; min-height: 0; }
+  aside {
+    width: 255px; flex: 0 0 255px; background: var(--panel); border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  aside .title { padding: 11px 14px 6px; font-size: 11px; color: var(--muted); letter-spacing: 1px; }
+  #session-list { flex: 1; overflow-y: auto; padding: 4px 8px 12px; }
+  .session {
+    border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; margin-bottom: 6px;
+    cursor: pointer; background: #0f1929;
+  }
+  .session:hover { border-color: #2f4463; }
+  .session.active { border-color: var(--accent); background: #152340; }
+  .session .name { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .session .meta { font-size: 11px; color: var(--muted); margin-top: 3px; word-break: break-all; }
+  .tag { font-size: 10px; border: 1px solid #2f4463; border-radius: 4px; padding: 0 5px; color: #93c5fd; }
+  .tag.mirror { color: #fbbf24; border-color: #78350f; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); display: inline-block; }
+  .empty { color: var(--muted); font-size: 12px; padding: 13px; line-height: 1.8; }
+  main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .toolbar {
+    display: flex; align-items: center; gap: 8px; padding: 7px 12px;
+    background: #0d1524; border-bottom: 1px solid var(--line); flex: 0 0 auto; flex-wrap: wrap;
+  }
+  .toolbar .info { font-size: 12px; color: var(--muted); }
+  .toolbar .info b { color: var(--ink); font-weight: 600; }
+  .toolbar .right { margin-left: auto; display: flex; gap: 7px; }
+  .toolbar button {
+    color: var(--ink); background: #17233a; border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer;
+  }
+  .toolbar button:hover { background: #213354; }
+  .toolbar button.danger { border-color: #7f1d1d; color: #fca5a5; }
+  .toolbar button:disabled { opacity: .45; cursor: not-allowed; }
+  #term-host { flex: 1; min-height: 0; padding: 8px 10px; background: #05090f; }
+  .xterm { height: 100%; }
+  .xterm-viewport { overflow-y: auto; }
+  .placeholder {
+    height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #5f728c; gap: 10px; font-size: 13px;
+  }
+  .placeholder .big { font-size: 42px; opacity: .35; }
+  .spinner { width: 14px; height: 14px; border: 2px solid #334155; border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .banner { font-size: 12px; color: #fbbf24; padding: 3px 10px; border: 1px solid #78350f; border-radius: 5px; background: #1c1205; }
+</style>
+</head>
+<body>
+<header>
+  <h1>npa-mcp 终端</h1>
+  <span class="info" id="head-status" style="font-size:12px;color:var(--muted)"></span>
+  <span class="spacer"></span>
+  <button type="button" data-open-kind="serial">+ 串口</button>
+  <button type="button" data-open-kind="telnet">+ Telnet</button>
+  <button type="button" data-open-kind="ssh">+ SSH</button>
+  <a href="/config">配置页</a>
+  <a href="/reports" target="_blank">报告</a>
+</header>
+<div class="wrap">
+  <aside>
+    <div class="title">会话列表 · 每 3 秒刷新</div>
+    <div id="session-list"><div class="empty">加载中…</div></div>
+  </aside>
+  <main>
+    <div class="toolbar">
+      <div class="info" id="session-info">未选择会话</div>
+      <span class="banner" id="readonly-banner" style="display:none">只读镜像终端</span>
+      <div class="right">
+        <button type="button" id="btn-refresh">刷新列表</button>
+        <button type="button" id="btn-close-view" disabled>关闭视图</button>
+        <button type="button" id="btn-force-close" class="danger" disabled>强制断开</button>
+      </div>
+    </div>
+    <div id="term-host">
+      <div class="placeholder" id="placeholder">
+        <div class="big">⌨</div>
+        <div>选择左侧会话,或点击顶部按钮打开新会话</div>
+        <div style="font-size:12px">AI 执行的每条远程命令都会出现在对应终端里</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="/static/xterm.js"></script>
+<script src="/static/xterm-addon-fit.js"></script>
+<script>
+(function () {
+  "use strict";
+  const KIND_NAMES = { serial: "串口", telnet: "Telnet", ssh: "SSH", mirror: "镜像" };
+  const params = new URLSearchParams(location.search);
+  let currentId = params.get("session") || "";
+  let ws = null;
+  let term = null;
+  let fit = null;
+  let intentionalClose = false;
+  let sessions = [];
+
+  const $ = (sel) => document.querySelector(sel);
+
+  function el(tag, cls, text) {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  function ensureTerm() {
+    if (term) return;
+    $("#placeholder").remove();
+    term = new Terminal({
+      cursorBlink: true,
+      fontFamily: 'Consolas, "Cascadia Mono", "Courier New", monospace',
+      fontSize: 14,
+      lineHeight: 1.15,
+      scrollback: 8000,
+      convertEol: false,
+      theme: {
+        background: "#05090f",
+        foreground: "#d7e2f0",
+        cursor: "#60a5fa",
+        selectionBackground: "#1e3a8a",
+        black: "#1e293b", red: "#f87171", green: "#34d399", yellow: "#fbbf24",
+        blue: "#60a5fa", magenta: "#c084fc", cyan: "#22d3ee", white: "#e2e8f0",
+        brightBlack: "#64748b", brightRed: "#fca5a5", brightGreen: "#6ee7b7",
+        brightYellow: "#fde68a", brightBlue: "#93c5fd", brightMagenta: "#d8b4fe",
+        brightCyan: "#67e8f9", brightWhite: "#f8fafc",
+      },
+    });
+    fit = new FitAddon.FitAddon();
+    term.loadAddon(fit);
+    const host = $("#term-host");
+    term.open(host);
+    fit.fit();
+    term.onData((data) => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "input", data: data }));
+      }
+    });
+    term.onResize(({ cols, rows }) => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "resize", cols: cols, rows: rows }));
+      }
+    });
+    window.addEventListener("resize", () => { try { fit.fit(); } catch (e) {} });
+    if (window.ResizeObserver) {
+      new ResizeObserver(() => { try { fit.fit(); } catch (e) {} }).observe(host);
+    }
+  }
+
+  function setInfo(text) { $("#session-info").innerHTML = text; }
+
+  function writeNotice(text) {
+    if (!term) return;
+    term.write("\r\n\x1b[33m" + text + "\x1b[0m\r\n");
+  }
+
+  async function fetchJson(url, options) {
+    const resp = await fetch(url, options);
+    try { return await resp.json(); } catch (e) { return { ok: false, error: "响应解析失败" }; }
+  }
+
+  function renderSessions() {
+    const list = $("#session-list");
+    list.textContent = "";
+    if (!sessions.length) {
+      const empty = el("div", "empty");
+      empty.innerHTML = "还没有会话。<br>点击顶部“+ 串口 / + Telnet / + SSH”打开,<br>或让 AI 直接执行 device_exec。";
+      list.appendChild(empty);
+      return;
+    }
+    sessions.forEach((s) => {
+      const box = el("div", "session" + (s.session_id === currentId ? " active" : ""));
+      box.dataset.id = s.session_id;
+      const name = el("div", "name");
+      const dot = el("span", "dot");
+      if (s.closed) dot.style.background = "#ef4444";
+      else if (s.hidden) dot.style.background = "#64748b";
+      name.appendChild(dot);
+      name.appendChild(el("span", null, s.label || s.session_id));
+      const tag = el("span", "tag" + (s.kind === "mirror" ? " mirror" : ""), KIND_NAMES[s.kind] || s.kind);
+      name.appendChild(tag);
+      box.appendChild(name);
+      box.appendChild(el("div", "meta",
+        (s.target || "-") + " · " + (s.subscribers ? s.subscribers + " 个查看者" : "无查看者") +
+        (s.hidden ? " · 视图已关闭" : "")));
+      box.addEventListener("click", () => selectSession(s.session_id));
+      list.appendChild(box);
+    });
+  }
+
+  async function refreshSessions(selectMissing) {
+    const data = await fetchJson("/api/sessions");
+    if (!data || !data.ok) return;
+    sessions = data.sessions || [];
+    renderSessions();
+    if (currentId && !sessions.some((s) => s.session_id === currentId)) {
+      currentId = "";
+    }
+    if (!currentId && sessions.length && selectMissing !== false) {
+      const first = sessions.find((s) => !s.hidden) || sessions[0];
+      selectSession(first.session_id);
+    }
+    $("#head-status").textContent = sessions.length ? sessions.length + " 个会话" : "";
+  }
+
+  function disconnect() {
+    intentionalClose = true;
+    if (ws) {
+      try { ws.close(); } catch (e) {}
+      ws = null;
+    }
+    intentionalClose = false;
+  }
+
+  function selectSession(id) {
+    if (!id) return;
+    if (id === currentId && ws && ws.readyState === WebSocket.OPEN) return;
+    currentId = id;
+    params.set("session", id);
+    history.replaceState(null, "", "/terminals?" + params.toString());
+    ensureTerm();
+    disconnect();
+    term.reset();
+    term.options.disableStdin = false;
+    $("#readonly-banner").style.display = "none";
+    const meta = sessions.find((s) => s.session_id === id);
+    setInfo(meta
+      ? "<b>" + escapeHtml(meta.label) + "</b> · " + escapeHtml(meta.target || "") +
+        " · <span style='font-family:monospace'>" + escapeHtml(id) + "</span>"
+      : "<b>" + escapeHtml(id) + "</b>");
+    $("#btn-close-view").disabled = false;
+    $("#btn-force-close").disabled = false;
+    term.write("\x1b[90m正在连接终端…\x1b[0m\r\n");
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const socket = new WebSocket(proto + "://" + location.host + "/ws/session/" + encodeURIComponent(id));
+    ws = socket;
+    socket.onopen = () => {
+      if (ws !== socket) return;
+      try { fit.fit(); } catch (e) {}
+    };
+    socket.onmessage = (event) => {
+      if (ws !== socket) return;
+      let msg;
+      try { msg = JSON.parse(event.data); } catch (e) { return; }
+      if (msg.type === "init") {
+        term.reset();
+        term.options.disableStdin = !!msg.read_only;
+        $("#readonly-banner").style.display = msg.read_only ? "inline-block" : "none";
+        if (msg.text) term.write(msg.text);
+      } else if (msg.type === "data") {
+        term.write(msg.text);
+      } else if (msg.type === "notice") {
+        writeNotice(String(msg.text || "").replace(/^\r?\n/, ""));
+      }
+    };
+    socket.onclose = () => {
+      if (ws !== socket) return;
+      if (!intentionalClose) {
+        writeNotice("终端连接已断开。可重新点击左侧会话重连。");
+        setInfo("连接已断开");
+      }
+    };
+    socket.onerror = () => {};
+  }
+
+  function escapeHtml(text) {
+    return String(text == null ? "" : text).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+  }
+
+  async function openKind(kind) {
+    const data = await fetchJson("/api/sessions/open", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: kind }),
+    });
+    if (!data || !data.ok) {
+      alert("打开失败: " + ((data && data.error) || "未知错误") +
+        (data && data.hint ? "\n" + data.hint : ""));
+      return;
+    }
+    await refreshSessions(false);
+    selectSession(data.session.session_id);
+  }
+
+  async function closeSession(force) {
+    if (!currentId) return;
+    if (force && !confirm("确定强制断开底层会话?正在执行的命令会被中断。")) return;
+    const data = await fetchJson("/api/sessions/" + encodeURIComponent(currentId) + "/close", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: force }),
+    });
+    if (!data || !data.ok) {
+      alert("操作失败: " + ((data && data.error) || "未知错误"));
+      return;
+    }
+    if (force) {
+      disconnect();
+      term.reset();
+      currentId = "";
+      params.delete("session");
+      history.replaceState(null, "", "/terminals");
+      setInfo("未选择会话");
+      $("#btn-close-view").disabled = true;
+      $("#btn-force-close").disabled = true;
+    } else {
+      $("#btn-close-view").disabled = true;
+      $("#btn-force-close").disabled = true;
+      setInfo("视图已关闭,底层会话仍在运行");
+    }
+    refreshSessions(false);
+  }
+
+  document.querySelectorAll("[data-open-kind]").forEach((btn) => {
+    btn.addEventListener("click", () => openKind(btn.dataset.openKind));
+  });
+  $("#btn-refresh").addEventListener("click", () => refreshSessions(false));
+  $("#btn-close-view").addEventListener("click", () => closeSession(false));
+  $("#btn-force-close").addEventListener("click", () => closeSession(true));
+
+  ensureTerm();
+  refreshSessions(true).then(() => {
+    if (currentId && !ws) selectSession(currentId);
+  });
+  setInterval(() => refreshSessions(false), 3000);
+})();
+</script>
+</body>
+</html>

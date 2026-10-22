@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "npa-mcp"
+version = "0.1.0"
+description = "嵌入式开发 MCP 服务器:远程代码服务器 / 开发板 / 电源管理设备自动化"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+  "fastmcp>=2.8,<3",
+  "paramiko>=3.4",
+  "pyserial>=3.5",
+  "telnetlib3>=2.0.3",
+  "fastapi>=0.111",
+  "uvicorn>=0.30",
+  "websockets>=12.0",
+  "tftpy>=0.8.2",
+  "pyftpdlib>=2.0",
+  "jinja2>=3.1",
+  "pydantic>=2.7",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2",
+  "pytest-asyncio>=0.23",
+  "ruff>=0.4",
+]
+
+[project.scripts]
+npa-mcp = "npa_mcp.server:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/npa_mcp"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

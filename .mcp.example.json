@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "npa_mcp": {
+      "command": "C:/Users/<你的用户名>/AppData/Local/npa-mcp/venv/Scripts/python.exe",
+      "args": ["-m", "npa_mcp"],
+      "env": {
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8"
+      }
+    }
+  }
+}

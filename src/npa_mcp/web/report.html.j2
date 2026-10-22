@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} · npa-mcp 报告</title>
+<style>
+  :root {
+    --ink: #1f2937; --muted: #6b7280; --line: #e5e7eb; --bg: #f4f6f9;
+    --card: #ffffff; --accent: #2563eb; --accent-ink: #1e40af;
+    --ok: #047857; --ok-bg: #ecfdf5; --warn: #b45309; --warn-bg: #fffbeb;
+    --bad: #b91c1c; --bad-bg: #fef2f2; --code-bg: #0f172a; --code-ink: #dbe4f0;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Segoe UI", sans-serif;
+    font-size: 14px; line-height: 1.7;
+  }
+  .page { max-width: 980px; margin: 0 auto; padding: 28px 22px 56px; }
+  header.hero {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb 55%, #0ea5e9);
+    color: #fff; border-radius: 12px; padding: 26px 28px 22px;
+    box-shadow: 0 8px 24px rgba(30, 58, 138, .18);
+  }
+  header.hero .eyebrow { font-size: 12px; letter-spacing: 2px; opacity: .82; text-transform: uppercase; }
+  header.hero h1 { margin: 6px 0 12px; font-size: 27px; line-height: 1.3; }
+  header.hero .meta { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 12.5px; opacity: .92; }
+  header.hero .meta b { font-weight: 600; }
+  .badge {
+    display: inline-block; padding: 2px 11px; border-radius: 999px; font-size: 12px;
+    font-weight: 600; letter-spacing: .5px; vertical-align: 2px;
+  }
+  .badge.success { background: #d1fae5; color: #065f46; }
+  .badge.warning { background: #fef3c7; color: #92400e; }
+  .badge.failed  { background: #fee2e2; color: #991b1b; }
+  .badge.info    { background: #dbeafe; color: #1e40af; }
+  section.card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 20px 22px; margin-top: 18px; box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+  }
+  section.card > h2 {
+    margin: 0 0 13px; font-size: 16px; display: flex; align-items: center; gap: 9px;
+  }
+  section.card > h2::before {
+    content: ""; width: 4px; height: 16px; border-radius: 2px; background: var(--accent);
+  }
+  .summary { white-space: pre-wrap; color: #374151; }
+  .empty { color: var(--muted); font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; vertical-align: top; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; background: #fafbfc; white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td.cat { white-space: nowrap; color: var(--accent-ink); font-weight: 600; }
+  td.path { font-family: Consolas, "Cascadia Mono", monospace; font-size: 12.5px; color: #475569; word-break: break-all; }
+  code, .mono { font-family: Consolas, "Cascadia Mono", monospace; }
+  .sev {
+    display: inline-block; min-width: 42px; text-align: center; padding: 0 7px;
+    border-radius: 5px; font-size: 11.5px; font-weight: 600;
+  }
+  .sev.high   { background: var(--bad-bg); color: var(--bad); }
+  .sev.medium { background: var(--warn-bg); color: var(--warn); }
+  .sev.low    { background: #eff6ff; color: var(--accent-ink); }
+  ul.steps { margin: 0; padding-left: 22px; }
+  ul.steps li { margin: 4px 0; }
+  details.session {
+    border: 1px solid var(--line); border-radius: 8px; padding: 0; margin: 10px 0;
+    overflow: hidden; background: #fbfcfe;
+  }
+  details.session > summary {
+    cursor: pointer; padding: 9px 13px; font-size: 13px; font-weight: 600;
+    background: #f1f5f9; user-select: none;
+  }
+  details.session > summary .meta { color: var(--muted); font-weight: 400; margin-left: 8px; font-size: 12px; }
+  details.session pre {
+    margin: 0; padding: 13px 15px; max-height: 460px; overflow: auto;
+    background: var(--code-bg); color: var(--code-ink); font-size: 12px; line-height: 1.55;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  footer { margin-top: 26px; color: var(--muted); font-size: 12px; text-align: center; }
+  @media print {
+    body { background: #fff; }
+    .page { max-width: none; padding: 0; }
+    header.hero { box-shadow: none; }
+    section.card { break-inside: avoid; box-shadow: none; }
+    details.session { break-inside: avoid; }
+  }
+  @media (max-width: 640px) {
+    .page { padding: 14px 12px 36px; }
+    header.hero { padding: 20px 18px; border-radius: 9px; }
+    header.hero h1 { font-size: 21px; }
+    th, td { padding: 7px 6px; }
+    td.path { font-size: 11.5px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="hero">
+    <div class="eyebrow">npa-mcp · 开发工作总结</div>
+    <h1>{{ title }}</h1>
+    <div class="meta">
+      {% if project %}<span>项目:<b>{{ project }}</b></span>{% endif %}
+      <span>生成时间:<b>{{ generated_at }}</b></span>
+      <span>状态:<span class="badge {{ status }}">{{ status_text }}</span></span>
+    </div>
+  </header>
+
+  <section class="card">
+    <h2>概述</h2>
+    {% if summary %}
+      <div class="summary">{{ summary }}</div>
+    {% else %}
+      <div class="empty">本次未填写概述。</div>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>主要改动 <span class="badge info">{{ changes|length }}</span></h2>
+    {% if changes %}
+    <table>
+      <thead><tr><th>分类</th><th>说明</th><th>文件 / 位置</th></tr></thead>
+      <tbody>
+      {% for item in changes %}
+        <tr>
+          <td class="cat">{{ item.category or "其他" }}</td>
+          <td>{{ item.description }}</td>
+          <td class="path">{{ item.file or "—" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <div class="empty">没有记录改动。</div>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>问题与风险 <span class="badge info">{{ issues|length }}</span></h2>
+    {% if issues %}
+    <table>
+      <thead><tr><th>严重度</th><th>问题描述</th><th>处理状态</th></tr></thead>
+      <tbody>
+      {% for item in issues %}
+        <tr>
+          <td><span class="sev {{ item.severity }}">{{ item.severity_text }}</span></td>
+          <td>{{ item.description }}</td>
+          <td>{{ item.status or "待处理" }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <div class="empty">没有发现遗留问题。</div>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>下一步</h2>
+    {% if next_steps %}
+      <ul class="steps">
+      {% for step in next_steps %}<li>{{ step }}</li>{% endfor %}
+      </ul>
+    {% else %}
+      <div class="empty">暂无后续计划。</div>
+    {% endif %}
+  </section>
+
+  {% if sessions %}
+  <section class="card">
+    <h2>远程会话日志 <span class="badge info">{{ sessions|length }}</span></h2>
+    {% for item in sessions %}
+    <details class="session"{% if loop.first %} open{% endif %}>
+      <summary>{{ item.label or item.session_id }}
+        <span class="meta">{{ item.kind }} · {{ item.target or "—" }}{% if item.closed %} · 已关闭{% endif %}</span>
+      </summary>
+      <pre>{{ item.text or "(没有输出)" }}</pre>
+    </details>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <footer>由 npa-mcp generate_report 生成 · 本文件无外部依赖,可直接归档或分享</footer>
+</div>
+</body>
+</html>
